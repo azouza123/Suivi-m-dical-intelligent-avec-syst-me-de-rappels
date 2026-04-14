@@ -17,7 +17,7 @@ const medicationSlice = createSlice ({
             state.medications.push(action.payload)
         },
         updateMedication: (state, action) => {
-            state.medications.findIndex(m => m.id === action.payload.id)
+            const index = state.medications.findIndex(m => m.id === action.payload.id)
             if (index !== -1) state.medications[index] = action.payload
         },
         deleteMedication: (state, action) => {
