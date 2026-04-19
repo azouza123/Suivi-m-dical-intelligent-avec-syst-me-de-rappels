@@ -1,0 +1,15 @@
+# Backend
+suivi-medical/target/
+suivi-medical/*.iml
+suivi-medical/.idea/
+suivi-medical/uploads/
+
+# Frontend
+medical-app/node_modules/
+medical-app/dist/
+medical-app/.env.local
+
+# System
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,14 @@
+target/
+*.iml
+.idea/
+.git/
+*.md
+uploads/
+.mvn/
+
+node_modules/
+dist/
+.git/
+*.md
+.env.local
+.env
