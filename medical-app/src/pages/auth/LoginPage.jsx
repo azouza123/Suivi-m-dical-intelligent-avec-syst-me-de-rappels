@@ -17,21 +17,22 @@ const LoginPage = () => {
     }
 
     const handleSubmit = async (e) => {
-        e.preventDefault()
-        setLoading(true)
-        setError(null)
-        try {
-            const response = await authService.login(formData)
-            dispatch(loginSuccess({
-                user: response.data.user,
-                token: response.data.token,
-            }))
-            navigate('/dashboard')
-        } catch (err) {
-            setError(err.response?.data?.message || 'Email ou mot de passe incorrect')
-        } finally {
-            setLoading(false)
-        }
+      e.preventDefault();
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await authService.login(formData);
+        const { user, token, role } = response.data;
+        dispatch(loginSuccess({ user, token, role }));
+        // Redirection selon le rôle
+        navigate(role === "doctor" ? "/doctor/dashboard" : "/dashboard");
+      } catch (err) {
+        setError(
+          err.response?.data?.message || "Email ou mot de passe incorrect",
+        );
+      } finally {
+        setLoading(false);
+      }
     }
 
     return (

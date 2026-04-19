@@ -3,6 +3,7 @@ import authReducer from './authSlice'
 import medicationReducer from './medicationSlice'
 import measureReducer from './measureSlice'
 import reminderReducer from './reminderSlice'
+import doctorReducer from './doctorSlice'
 
 const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ const store = configureStore({
     medications: medicationReducer,
     measures: measureReducer,
     reminders: reminderReducer,
+    doctors: doctorReducer,
   },
 })
 

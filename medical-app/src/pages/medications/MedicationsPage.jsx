@@ -23,7 +23,11 @@ const MedicationsPage = () => {
   const [editingMed, setEditingMed] = useState(null)
 
   const handleAdd = (data) => {
-    dispatch(addMedication({ ...data, id: Date.now() }))
+    dispatch(addMedication({ 
+      ...data,
+      id: Date.now(),
+      createdAt: new Date().toISOString(), // timestamp d'ajout
+    }))
     setShowForm(false)
   }
 

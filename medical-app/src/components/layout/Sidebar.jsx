@@ -4,6 +4,7 @@ import {
     Activity,
     Bell,
     BarChart2,
+    Stethoscope 
 } from 'lucide-react'
 
 import { NavLink } from 'react-router-dom'
@@ -14,6 +15,7 @@ const navItems = [
     { path: '/measures', label: 'Mesures', icon: Activity },
     { path: '/reminders', label: 'Rappels', icon: Bell },
     { path: '/stats', label: 'Statistiques', icon: BarChart2 },
+    { path: '/doctor', label: 'Mon médecin', icon: Stethoscope },
 ]
 
 const Sidebar = () => {

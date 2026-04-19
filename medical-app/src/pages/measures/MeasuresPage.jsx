@@ -38,7 +38,11 @@ const MeasuresPage = () => {
   const [activeFilter, setActiveFilter] = useState('Toutes')
 
   const handleAdd = (data) => {
-    dispatch(addMeasure({ ...data, id: Date.now() }))
+    dispatch(addMeasure({
+      ...data,
+      id: Date.now(),
+      createdAt: new Date().toISOString(), // timestamp d'ajout
+    }))
     setShowForm(false)
   }
 
