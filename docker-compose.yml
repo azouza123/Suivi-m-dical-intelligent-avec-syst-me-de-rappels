@@ -13,7 +13,7 @@ services:
       MYSQL_USER: meditrack
       MYSQL_PASSWORD: meditrack123
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -76,7 +76,7 @@ services:
     container_name: meditrack-frontend
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - backend
     networks:
