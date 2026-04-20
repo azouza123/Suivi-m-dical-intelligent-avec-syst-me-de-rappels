@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
 
   # ─── Container 1: MySQL Database ─────────────────────────────
@@ -19,9 +17,11 @@ services:
     networks:
       - meditrack-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "meditrack", "-pmeditrack123"]
+      interval: 10s
       timeout: 20s
       retries: 10
+      start_period: 40s
 
   # ─── Container 2: MongoDB ─────────────────────────────────────
   mongodb:
@@ -36,8 +36,10 @@ services:
       - meditrack-network
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
       timeout: 10s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
   # ─── Container 3: Spring Boot Backend ────────────────────────
   backend:
@@ -49,11 +51,11 @@ services:
     ports:
       - "8081:8081"
     environment:
-      # MySQL
+      # MySQL - uses Docker service name
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/suivi_medical_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: meditrack
       SPRING_DATASOURCE_PASSWORD: meditrack123
-      # MongoDB
+      # MongoDB - uses Docker service name
       SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/suivi_medical_chat
       SPRING_DATA_MONGODB_DATABASE: suivi_medical_chat
       # JPA
