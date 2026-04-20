@@ -15,7 +15,7 @@ import StatsPage from '../pages/stats/StatsPage'
 import PatientChat from '../pages/chat/PatientChat'
 
 // Doctor pages
-import DoctorDashboard from '../pages/dashboard/Doctordashboard'
+import DoctorDashboard from '../pages/dashboard/DoctorDashboard'
 import DoctorProfile from '../pages/dashboard/DoctorProfile'
 import DoctorChat from '../pages/chat/DoctorChat'
 
