@@ -16,4 +16,5 @@ COPY --from=builder /app/target/*.jar app.jar
 
 EXPOSE 8081
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Activate the 'docker' Spring profile so application-docker.properties is used
+ENTRYPOINT ["java", "-Dspring.profiles.active=docker", "-jar", "app.jar"]
