@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import MainLayout from '../components/layout/MainLayout'
-import DoctorLayout from '../components/layout/Doctorlayout'
+import DoctorLayout from '../components/layout/DoctorLayout'
 
 import LoginPage from '../pages/auth/LoginPage'
 import RegisterPage from '../pages/auth/RegisterPage'
