@@ -40,9 +40,6 @@ services:
       timeout: 10s
       retries: 10
       start_period: 30s
-    environment:
-      SPRING_DATA_MONGODB_URI: "mongodb://mongodb:27017/suivi_medical_chat"
-      SPRING_DATA_MONGODB_DATABASE: suivi_medical_chat  
 
   # ─── Container 3: Spring Boot Backend ────────────────────────
   backend:
@@ -54,12 +51,17 @@ services:
     ports:
       - "8081:8081"
     environment:
+      # MySQL
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/suivi_medical_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: meditrack
       SPRING_DATASOURCE_PASSWORD: meditrack123
-      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/suivi_medical_chat
+      # MongoDB - using host/port instead of uri for Spring Boot 4
+      SPRING_DATA_MONGODB_HOST: mongodb
+      SPRING_DATA_MONGODB_PORT: "27017"
       SPRING_DATA_MONGODB_DATABASE: suivi_medical_chat
+      # JPA
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      # JWT
       APP_JWT_SECRET: mySecretKey1234567890abcdefghijklmnopqrstuvwxyz
       APP_JWT_EXPIRATION: "86400000"
     volumes:
