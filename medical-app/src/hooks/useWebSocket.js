@@ -7,6 +7,7 @@ const useWebSocket = (userId, onMessageReceived) => {
   const [connected, setConnected] = useState(false)
   const onMessageRef = useRef(onMessageReceived)
   const subscriptionsRef = useRef({})
+  const pendingSubscriptionsRef = useRef([]) // ← stores topics to subscribe after connect
 
   useEffect(() => {
     onMessageRef.current = onMessageReceived
@@ -20,28 +21,28 @@ const useWebSocket = (userId, onMessageReceived) => {
 
     const client = new Client({
       webSocketFactory: () => new SockJS('http://localhost:8081/ws'),
-
       connectHeaders: {
         Authorization: `Bearer ${token}`,
       },
-
       onConnect: () => {
         setConnected(true)
         console.log('WebSocket connected for user:', userId)
-      },
 
+        // Re-subscribe to all pending topics after reconnect
+        pendingSubscriptionsRef.current.forEach((otherUserId) => {
+          doSubscribe(client, userId, otherUserId)
+        })
+      },
       onDisconnect: () => {
         setConnected(false)
         subscriptionsRef.current = {}
         console.log('WebSocket disconnected')
       },
-
       onStompError: (frame) => {
         console.error('STOMP error:', frame)
         setConnected(false)
       },
-
-      reconnectDelay: 1000,
+      reconnectDelay: 1000, // ← faster reconnect
     })
 
     client.activate()
@@ -52,25 +53,20 @@ const useWebSocket = (userId, onMessageReceived) => {
         clientRef.current.deactivate()
         clientRef.current = null
         subscriptionsRef.current = {}
+        pendingSubscriptionsRef.current = []
       }
     }
   }, [userId])
 
-  // Subscribe to a conversation topic between two users
-  const subscribeToConversation = useCallback((otherUserId) => {
-    if (!clientRef.current?.connected || !userId || !otherUserId) return
-
-    // Build same topic as server: smaller id first
+  const doSubscribe = (client, userId, otherUserId) => {
     const id1 = Math.min(Number(userId), Number(otherUserId))
     const id2 = Math.max(Number(userId), Number(otherUserId))
     const topic = `/topic/chat.${id1}.${id2}`
 
-    // Already subscribed to this topic
     if (subscriptionsRef.current[topic]) return
 
     console.log('Subscribing to topic:', topic)
-
-    const subscription = clientRef.current.subscribe(topic, (message) => {
+    const subscription = client.subscribe(topic, (message) => {
       try {
         const parsed = JSON.parse(message.body)
         console.log('Received real-time message:', parsed)
@@ -81,11 +77,23 @@ const useWebSocket = (userId, onMessageReceived) => {
         console.error('Error parsing message:', e)
       }
     })
-
     subscriptionsRef.current[topic] = subscription
+  }
+
+  const subscribeToConversation = useCallback((otherUserId) => {
+    if (!userId || !otherUserId) return
+
+    // Always save to pending so we can re-subscribe after reconnect
+    if (!pendingSubscriptionsRef.current.includes(otherUserId)) {
+      pendingSubscriptionsRef.current.push(otherUserId)
+    }
+
+    // Subscribe immediately if already connected
+    if (clientRef.current?.connected) {
+      doSubscribe(clientRef.current, userId, otherUserId)
+    }
   }, [userId])
 
-  // Unsubscribe from a conversation topic
   const unsubscribeFromConversation = useCallback((otherUserId) => {
     if (!userId || !otherUserId) return
     const id1 = Math.min(Number(userId), Number(otherUserId))
@@ -96,6 +104,11 @@ const useWebSocket = (userId, onMessageReceived) => {
       subscriptionsRef.current[topic].unsubscribe()
       delete subscriptionsRef.current[topic]
     }
+
+    // Remove from pending
+    pendingSubscriptionsRef.current = pendingSubscriptionsRef.current.filter(
+      id => id !== otherUserId
+    )
   }, [userId])
 
   const sendMessage = useCallback((destination, body) => {
