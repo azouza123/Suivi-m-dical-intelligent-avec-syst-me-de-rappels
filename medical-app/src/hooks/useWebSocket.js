@@ -41,7 +41,7 @@ const useWebSocket = (userId, onMessageReceived) => {
         setConnected(false)
       },
 
-      reconnectDelay: 5000,
+      reconnectDelay: 1000,
     })
 
     client.activate()

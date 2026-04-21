@@ -26,6 +26,10 @@ const DoctorChat = () => {
   const [uploading, setUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
 
+  // Debounced online status — prevents flicker during page reload
+  const [showOnline, setShowOnline] = useState(false)
+  const offlineTimerRef = useRef(null)
+
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -45,6 +49,17 @@ const DoctorChat = () => {
 
   const { connected, sendMessage, subscribeToConversation, unsubscribeFromConversation } =
     useWebSocket(user?.id, handleIncomingMessage)
+
+  // Debounce offline status — wait 4 seconds before showing offline
+  useEffect(() => {
+    if (connected) {
+      clearTimeout(offlineTimerRef.current)
+      setShowOnline(true)
+    } else {
+      offlineTimerRef.current = setTimeout(() => setShowOnline(false), 4000)
+    }
+    return () => clearTimeout(offlineTimerRef.current)
+  }, [connected])
 
   useEffect(() => {
     doctorService.getPatients()
@@ -114,13 +129,7 @@ const DoctorChat = () => {
     if (!selectedFile || !selectedPatient) return
     setUploading(true)
     try {
-      await chatService.uploadFile(
-        selectedFile,
-        selectedPatient.id,
-        selectedPatient.name,
-        user.name,
-        'DOCTOR'
-      )
+      await chatService.uploadFile(selectedFile, selectedPatient.id, selectedPatient.name, user.name, 'DOCTOR')
       setSelectedFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
     } catch (e) {
@@ -131,10 +140,7 @@ const DoctorChat = () => {
   }
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
   const formatTime = (timestamp) => {
@@ -171,15 +177,14 @@ const DoctorChat = () => {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Communiquez avec vos patients en temps réel</p>
         </div>
         <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium ${
-          connected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
+          showOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
         }`}>
-          {connected ? <Wifi size={12} /> : <WifiOff size={12} />}
-          {connected ? 'Connecté' : 'Déconnecté'}
+          {showOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
+          {showOnline ? 'Connecté' : 'Déconnecté'}
         </div>
       </div>
 
       <div className="flex gap-4" style={{ height: 'calc(100vh - 200px)' }}>
-
         {/* Patient list */}
         <div className="w-64 flex-shrink-0 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
@@ -204,8 +209,7 @@ const DoctorChat = () => {
                         selectedPatient?.id === patient.id
                           ? 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700'
                           : 'hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent'
-                      }`}
-                    >
+                      }`}>
                       <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold ${
                         selectedPatient?.id === patient.id ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
                       }`}>
@@ -238,7 +242,6 @@ const DoctorChat = () => {
             </div>
           ) : (
             <>
-              {/* Header */}
               <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3 flex-shrink-0">
                 <div className="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                   <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
@@ -251,7 +254,6 @@ const DoctorChat = () => {
                 </div>
               </div>
 
-              {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {loadingMessages ? (
                   <div className="flex items-center justify-center h-full">
@@ -278,7 +280,6 @@ const DoctorChat = () => {
                             <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                               <div className="max-w-xs lg:max-w-md">
                                 {!isMe && <p className="text-xs text-gray-400 mb-1 ml-1">{msg.senderName}</p>}
-
                                 {msg.messageType === 'FILE' ? (
                                   <FileMessage msg={msg} isMe={isMe} />
                                 ) : (
@@ -288,7 +289,6 @@ const DoctorChat = () => {
                                     <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                                   </div>
                                 )}
-
                                 <div className={`flex items-center gap-1 mt-0.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
                                   <span className="text-xs text-gray-400">{formatTime(msg.timestamp)}</span>
                                   {isMe && (msg.read ? <CheckCheck size={12} className="text-purple-500" /> : <Circle size={10} className="text-gray-300" />)}
@@ -304,58 +304,39 @@ const DoctorChat = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* File preview */}
               {selectedFile && (
                 <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 bg-blue-50 dark:bg-blue-900/20 flex items-center gap-3">
                   <Paperclip size={14} className="text-blue-500 flex-shrink-0" />
                   <p className="text-sm text-blue-700 dark:text-blue-300 flex-1 truncate">{selectedFile.name}</p>
                   <button onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
-                    className="text-gray-400 hover:text-red-500 transition-colors">
-                    <X size={14} />
-                  </button>
+                    className="text-gray-400 hover:text-red-500 transition-colors"><X size={14} /></button>
                   <button onClick={handleFileUpload} disabled={uploading}
                     className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg disabled:opacity-50 flex items-center gap-1">
-                    {uploading ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                    Envoyer
+                    {uploading ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Envoyer
                   </button>
                 </div>
               )}
 
-              {/* Input */}
               <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 flex-shrink-0">
                 <div className="flex items-end gap-2">
-
-                  {/* File attach button */}
                   <button onClick={() => fileInputRef.current?.click()}
-                    className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-purple-600 hover:border-purple-300 transition-colors flex-shrink-0"
-                    title="Joindre un fichier"
-                  >
+                    className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-purple-600 hover:border-purple-300 transition-colors flex-shrink-0">
                     <Paperclip size={16} />
                   </button>
-                  <input ref={fileInputRef} type="file" className="hidden"
-                    onChange={handleFileSelect}
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
-                  />
-
-                  <textarea
-                    ref={inputRef}
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect}
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" />
+                  <textarea ref={inputRef} value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={connected ? "Écrivez votre message..." : "Connexion en cours..."}
-                    rows={1}
-                    disabled={!connected}
+                    rows={1} disabled={!connected}
                     className="flex-1 px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none transition-colors disabled:opacity-50"
-                    style={{ minHeight: '42px', maxHeight: '120px' }}
-                  />
+                    style={{ minHeight: '42px', maxHeight: '120px' }} />
                   <button onClick={handleSend} disabled={!newMessage.trim() || !connected}
                     className="w-10 h-10 flex items-center justify-center bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl transition-colors flex-shrink-0">
                     <Send size={16} />
                   </button>
                 </div>
-                <p className="text-xs text-gray-400 mt-1.5 ml-12">
-                  Entrée pour envoyer • 📎 pour joindre un fichier
-                </p>
+                <p className="text-xs text-gray-400 mt-1.5 ml-12">Entrée pour envoyer • 📎 pour joindre un fichier</p>
               </div>
             </>
           )}

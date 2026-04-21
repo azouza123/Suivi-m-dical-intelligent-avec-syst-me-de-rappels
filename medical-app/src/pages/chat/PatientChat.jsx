@@ -24,6 +24,10 @@ const PatientChat = () => {
   const [selectedFile, setSelectedFile] = useState(null)
   const [uploading, setUploading] = useState(false)
 
+  // Debounced online status — prevents flicker during page reload
+  const [showOnline, setShowOnline] = useState(false)
+  const offlineTimerRef = useRef(null)
+
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -31,9 +35,7 @@ const PatientChat = () => {
 
   const doctor = reduxDoctor
 
-  const conversationId = doctor && user
-    ? buildConvId(user.id, doctor.id)
-    : null
+  const conversationId = doctor && user ? buildConvId(user.id, doctor.id) : null
   const messages = conversationId ? (allMessages[conversationId] || []) : []
   const validMessages = messages.filter(m => m != null && m.id != null)
 
@@ -46,7 +48,17 @@ const PatientChat = () => {
   const { connected, sendMessage, subscribeToConversation } =
     useWebSocket(user?.id, handleIncomingMessage)
 
-  // Load doctor + messages
+  // Debounce offline status — wait 4 seconds before showing offline
+  useEffect(() => {
+    if (connected) {
+      clearTimeout(offlineTimerRef.current)
+      setShowOnline(true)
+    } else {
+      offlineTimerRef.current = setTimeout(() => setShowOnline(false), 4000)
+    }
+    return () => clearTimeout(offlineTimerRef.current)
+  }, [connected])
+
   useEffect(() => {
     if (reduxDoctor) {
       if (conversationId && !allMessages[conversationId]) {
@@ -78,13 +90,9 @@ const PatientChat = () => {
         }
       })
       .catch(console.error)
-      .finally(() => {
-        setLoadingDoctor(false)
-        setLoadingMessages(false)
-      })
+      .finally(() => { setLoadingDoctor(false); setLoadingMessages(false) })
   }, [])
 
-  // Subscribe to conversation
   useEffect(() => {
     if (connected && doctor?.id && !subscribedRef.current) {
       subscribeToConversation(doctor.id)
@@ -92,13 +100,8 @@ const PatientChat = () => {
     }
   }, [connected, doctor?.id])
 
-  useEffect(() => {
-    if (!connected) subscribedRef.current = false
-  }, [connected])
-
-  useEffect(() => {
-    return () => { subscribedRef.current = false }
-  }, [])
+  useEffect(() => { if (!connected) subscribedRef.current = false }, [connected])
+  useEffect(() => { return () => { subscribedRef.current = false } }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -107,55 +110,34 @@ const PatientChat = () => {
   const handleSend = () => {
     if (!newMessage.trim() || !doctor || !connected) return
     sendMessage('/app/chat.send', {
-      senderId: user.id,
-      senderName: user.name,
-      senderRole: 'PATIENT',
-      receiverId: doctor.id,
-      receiverName: doctor.name,
-      content: newMessage.trim(),
+      senderId: user.id, senderName: user.name, senderRole: 'PATIENT',
+      receiverId: doctor.id, receiverName: doctor.name, content: newMessage.trim(),
     })
     setNewMessage('')
     inputRef.current?.focus()
   }
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setSelectedFile(file)
-  }
+  const handleFileSelect = (e) => { const file = e.target.files[0]; if (!file) return; setSelectedFile(file) }
 
   const handleFileUpload = async () => {
     if (!selectedFile || !doctor) return
     setUploading(true)
     try {
-      await chatService.uploadFile(
-        selectedFile,
-        doctor.id,
-        doctor.name,
-        user.name,
-        'PATIENT'
-      )
+      await chatService.uploadFile(selectedFile, doctor.id, doctor.name, user.name, 'PATIENT')
       setSelectedFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
-    } catch (e) {
-      alert('Erreur lors de l\'envoi du fichier')
-    } finally {
-      setUploading(false)
-    }
+    } catch (e) { alert('Erreur lors de l\'envoi du fichier') }
+    finally { setUploading(false) }
   }
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
   const formatTime = (timestamp) => {
     if (!timestamp) return ''
-    try {
-      return new Date(timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-    } catch { return '' }
+    try { return new Date(timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }
+    catch { return '' }
   }
 
   const formatDate = (timestamp) => {
@@ -178,9 +160,7 @@ const PatientChat = () => {
     return groups
   }, {})
 
-  const doctorName = doctor?.name?.startsWith('Dr.')
-    ? doctor.name
-    : `Dr. ${doctor?.name || ''}`
+  const doctorName = doctor?.name?.startsWith('Dr.') ? doctor.name : `Dr. ${doctor?.name || ''}`
 
   if (loadingDoctor) {
     return (
@@ -192,22 +172,17 @@ const PatientChat = () => {
 
   return (
     <div className="w-full space-y-4">
-
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Mon Médecin</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Communiquez avec votre médecin en temps réel
-          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Communiquez avec votre médecin en temps réel</p>
         </div>
         <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium ${
-          connected
-            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+          showOnline ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
             : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
         }`}>
-          {connected ? <Wifi size={12} /> : <WifiOff size={12} />}
-          {connected ? 'En ligne' : 'Hors ligne'}
+          {showOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
+          {showOnline ? 'En ligne' : 'Hors ligne'}
         </div>
       </div>
 
@@ -217,10 +192,9 @@ const PatientChat = () => {
           <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Aucun médecin assigné</p>
         </div>
       ) : (
-        <div
-          className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden"
-          style={{ height: 'calc(100vh - 200px)' }}
-        >
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden"
+          style={{ height: 'calc(100vh - 200px)' }}>
+
           {/* Doctor header */}
           <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3 flex-shrink-0">
             <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
@@ -231,8 +205,8 @@ const PatientChat = () => {
               <p className="text-xs text-gray-400">Votre médecin traitant</p>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className="text-xs text-gray-400">{connected ? 'En ligne' : 'Hors ligne'}</span>
+              <div className={`w-2 h-2 rounded-full ${showOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <span className="text-xs text-gray-400">{showOnline ? 'En ligne' : 'Hors ligne'}</span>
             </div>
           </div>
 
@@ -263,32 +237,20 @@ const PatientChat = () => {
                       return (
                         <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                           <div className="max-w-xs lg:max-w-md xl:max-w-lg">
-                            {!isMe && (
-                              <p className="text-xs text-gray-400 mb-1 ml-1">{doctorName}</p>
-                            )}
-
-                            {/* File or text message */}
+                            {!isMe && <p className="text-xs text-gray-400 mb-1 ml-1">{doctorName}</p>}
                             {msg.messageType === 'FILE' ? (
                               <FileMessage msg={msg} isMe={isMe} />
                             ) : (
                               <div className={`px-4 py-2.5 rounded-2xl ${
-                                isMe
-                                  ? 'bg-blue-600 text-white rounded-tr-sm'
+                                isMe ? 'bg-blue-600 text-white rounded-tr-sm'
                                   : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-white rounded-tl-sm'
                               }`}>
-                                <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                                  {msg.content}
-                                </p>
+                                <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                               </div>
                             )}
-
                             <div className={`flex items-center gap-1 mt-0.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
                               <span className="text-xs text-gray-400">{formatTime(msg.timestamp)}</span>
-                              {isMe && (
-                                msg.read
-                                  ? <CheckCheck size={12} className="text-blue-500" />
-                                  : <Circle size={10} className="text-gray-300" />
-                              )}
+                              {isMe && (msg.read ? <CheckCheck size={12} className="text-blue-500" /> : <Circle size={10} className="text-gray-300" />)}
                             </div>
                           </div>
                         </div>
@@ -301,24 +263,16 @@ const PatientChat = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* File preview bar */}
+          {/* File preview */}
           {selectedFile && (
             <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 bg-blue-50 dark:bg-blue-900/20 flex items-center gap-3">
               <Paperclip size={14} className="text-blue-500 flex-shrink-0" />
               <p className="text-sm text-blue-700 dark:text-blue-300 flex-1 truncate">{selectedFile.name}</p>
-              <button
-                onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
-                className="text-gray-400 hover:text-red-500 transition-colors"
-              >
-                <X size={14} />
-              </button>
-              <button
-                onClick={handleFileUpload}
-                disabled={uploading}
-                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg disabled:opacity-50 flex items-center gap-1"
-              >
-                {uploading ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                Envoyer
+              <button onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+                className="text-gray-400 hover:text-red-500 transition-colors"><X size={14} /></button>
+              <button onClick={handleFileUpload} disabled={uploading}
+                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg disabled:opacity-50 flex items-center gap-1">
+                {uploading ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Envoyer
               </button>
             </div>
           )}
@@ -326,45 +280,24 @@ const PatientChat = () => {
           {/* Input */}
           <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 flex-shrink-0">
             <div className="flex items-end gap-2">
-
-              {/* File attach button */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-blue-600 hover:border-blue-300 transition-colors flex-shrink-0"
-                title="Joindre un fichier"
-              >
+              <button onClick={() => fileInputRef.current?.click()}
+                className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-blue-600 hover:border-blue-300 transition-colors flex-shrink-0">
                 <Paperclip size={16} />
               </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={handleFileSelect}
-                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
-              />
-
-              <textarea
-                ref={inputRef}
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+              <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect}
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" />
+              <textarea ref={inputRef} value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={connected ? "Écrivez votre message..." : "Connexion en cours..."}
-                rows={1}
-                disabled={!connected}
+                rows={1} disabled={!connected}
                 className="flex-1 px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-colors disabled:opacity-50"
-                style={{ minHeight: '42px', maxHeight: '120px' }}
-              />
-              <button
-                onClick={handleSend}
-                disabled={!newMessage.trim() || !connected}
-                className="w-10 h-10 flex items-center justify-center bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl transition-colors flex-shrink-0"
-              >
+                style={{ minHeight: '42px', maxHeight: '120px' }} />
+              <button onClick={handleSend} disabled={!newMessage.trim() || !connected}
+                className="w-10 h-10 flex items-center justify-center bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl transition-colors flex-shrink-0">
                 <Send size={16} />
               </button>
             </div>
-            <p className="text-xs text-gray-400 mt-1.5 ml-12">
-              Entrée pour envoyer • 📎 pour joindre un fichier
-            </p>
+            <p className="text-xs text-gray-400 mt-1.5 ml-12">Entrée pour envoyer • 📎 pour joindre un fichier</p>
           </div>
         </div>
       )}
