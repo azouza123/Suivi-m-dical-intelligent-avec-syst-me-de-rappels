@@ -17,7 +17,7 @@ const useWebSocket = (userId, onMessageReceived) => {
     if (!userId) return
     if (clientRef.current) return
 
-    const token = localStorage.getItem('token')
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token')
 
     const client = new Client({
       webSocketFactory: () => new SockJS('http://localhost:8081/ws'),

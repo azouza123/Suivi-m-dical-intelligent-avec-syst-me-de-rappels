@@ -1,10 +1,10 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-// Load both token and user from localStorage on startup
 const loadInitialState = () => {
   try {
-    const token = localStorage.getItem('token')
-    const userStr = localStorage.getItem('user')
+    // sessionStorage is per-tab — perfect for multiple users
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token')
+    const userStr = sessionStorage.getItem('user')
     if (token && userStr) {
       return {
         user: JSON.parse(userStr),
@@ -28,17 +28,18 @@ const authSlice = createSlice({
       state.user = action.payload.user
       state.token = action.payload.token
       state.isAuthenticated = true
-      // Save BOTH token and user to localStorage
+      // Save to sessionStorage (per tab) instead of localStorage (shared)
+      sessionStorage.setItem('token', action.payload.token)
+      sessionStorage.setItem('user', JSON.stringify(action.payload.user))
       localStorage.setItem('token', action.payload.token)
-      localStorage.setItem('user', JSON.stringify(action.payload.user))
     },
     logout: (state) => {
       state.user = null
       state.token = null
       state.isAuthenticated = false
-      // Remove BOTH from localStorage
+      sessionStorage.removeItem('token')
+      sessionStorage.removeItem('user')
       localStorage.removeItem('token')
-      localStorage.removeItem('user')
     },
   },
 })
